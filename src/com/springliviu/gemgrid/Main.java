@@ -15,7 +15,7 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
-import java.util.Random;
+import java.util.*;
 
 public class Main extends Application {
 
@@ -39,29 +39,23 @@ public class Main extends Application {
 
         initGrid();
 
-        // Game title / logo
         Label logoLabel = new Label("💎 GemGrid 💎");
-        logoLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333;");
+        logoLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
 
-        // Score display
         scoreLabel = new Label("Score: 0");
         scoreLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
-        // Pause button to toggle menu overlay
         Button pauseButton = new Button("Pause");
         pauseButton.setOnAction(e -> menu.setVisible(!menu.isVisible()));
 
-        // Horizontal top bar
         HBox topBar = new HBox(20, scoreLabel, pauseButton);
         topBar.setAlignment(Pos.CENTER_RIGHT);
         topBar.setPadding(new Insets(0, 20, 0, 20));
 
-        // Header layout
         VBox header = new VBox(logoLabel, topBar);
         header.setSpacing(5);
         header.setPadding(new Insets(10, 0, 0, 0));
 
-        // Game overlay menu
         menu = new MenuOverlay(() -> {
             startGame();
             menu.setVisible(false);
@@ -69,10 +63,7 @@ public class Main extends Application {
         menu.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         menu.setVisible(false);
 
-        // StackPane to allow overlay
         StackPane gameArea = new StackPane(grid, menu);
-
-        // Full layout
         VBox mainLayout = new VBox(header, gameArea);
         mainLayout.setSpacing(10);
         mainLayout.setPadding(new Insets(10));
@@ -82,94 +73,63 @@ public class Main extends Application {
         stage.setTitle("GemGrid");
         stage.show();
 
-        // Escape key toggles the pause menu
         scene.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
                 menu.setVisible(!menu.isVisible());
             }
         });
+
+        startGame();
     }
 
-    // Initialize the grid with Tile objects
     private void initGrid() {
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
                 Tile tile = new Tile(row, col, TILE_SIZE, randomColor());
                 tiles[row][col] = tile;
-                tile.setOnMouseClicked(event -> handleClick(tile, event));
+                tile.setOnMouseClicked(e -> handleClick(tile, e));
                 grid.add(tile, col, row);
             }
         }
     }
 
-    // Start or restart the game
     private void startGame() {
         score = 0;
         updateScore();
 
-        // Fill grid with random colors
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
                 tiles[row][col].setTileColor(randomColor());
+                tiles[row][col].setBooster(BoosterType.NONE);
             }
         }
 
-        // Ensure no initial matches exist
         clearInitialMatches();
     }
 
-    // Regenerate tiles until no 3-in-a-row matches are present
     private void clearInitialMatches() {
         while (hasMatchAnywhere()) {
             for (int row = 0; row < GRID_SIZE; row++) {
                 for (int col = 0; col < GRID_SIZE; col++) {
                     tiles[row][col].setTileColor(randomColor());
+                    tiles[row][col].setBooster(BoosterType.NONE);
                 }
             }
         }
     }
 
-    // Handle tile clicks for selection and swapping
-    private void handleClick(Tile tile, MouseEvent event) {
-        if (menu.isVisible()) return;
-
-        if (selectedTile == null) {
-            selectedTile = tile;
-            highlightTile(tile, true);
-        } else {
-            highlightTile(selectedTile, false);
-            if (areAdjacent(selectedTile, tile)) {
-                swapTiles(selectedTile, tile);
-                if (checkForMatch(selectedTile) || checkForMatch(tile)) {
-                    checkMatchesAndClear();
-                } else {
-                    swapTiles(selectedTile, tile); // revert swap
-                }
-            }
-            selectedTile = null;
-        }
+    private void updateScore() {
+        scoreLabel.setText("Score: " + score);
     }
 
-    // Highlight or un-highlight a tile
-    private void highlightTile(Tile tile, boolean on) {
-        tile.setEffect(on ? new javafx.scene.effect.DropShadow(10, Color.BLACK) : null);
+    private Color randomColor() {
+        Color[] colors = {
+                Color.RED, Color.GREEN, Color.BLUE,
+                Color.YELLOW, Color.ORANGE, Color.PURPLE
+        };
+        return colors[random.nextInt(colors.length)];
     }
 
-    // Check if two tiles are next to each other
-    private boolean areAdjacent(Tile a, Tile b) {
-        int dr = Math.abs(a.getRow() - b.getRow());
-        int dc = Math.abs(a.getCol() - b.getCol());
-        return (dr + dc == 1);
-    }
-
-    // Swap two tile colors
-    private void swapTiles(Tile a, Tile b) {
-        Color temp = a.getTileColor();
-        a.setTileColor(b.getTileColor());
-        b.setTileColor(temp);
-    }
-
-    // Check the entire grid for any match
     private boolean hasMatchAnywhere() {
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
@@ -179,7 +139,46 @@ public class Main extends Application {
         return false;
     }
 
-    // Check if a tile is part of a match
+    private void handleClick(Tile tile, MouseEvent event) {
+        if (menu.isVisible()) return;
+
+        // Activate booster if selected
+        if (tile.getBooster() != BoosterType.NONE) {
+            activateBooster(tile);
+            return;
+        }
+
+        if (selectedTile == null) {
+            selectedTile = tile;
+        } else {
+            if (areAdjacent(selectedTile, tile)) {
+                swapTiles(selectedTile, tile);
+                if (checkForMatch(selectedTile) || checkForMatch(tile)) {
+                    checkMatchesAndClear();
+                } else {
+                    swapTiles(selectedTile, tile);
+                }
+            }
+            selectedTile = null;
+        }
+    }
+
+
+    private boolean areAdjacent(Tile a, Tile b) {
+        int dr = Math.abs(a.getRow() - b.getRow());
+        int dc = Math.abs(a.getCol() - b.getCol());
+        return (dr + dc == 1);
+    }
+
+    private void swapTiles(Tile a, Tile b) {
+        Color tempColor = a.getTileColor();
+        BoosterType tempBooster = a.getBooster();
+        a.setTileColor(b.getTileColor());
+        a.setBooster(b.getBooster());
+        b.setTileColor(tempColor);
+        b.setBooster(tempBooster);
+    }
+
     private boolean checkForMatch(Tile tile) {
         int row = tile.getRow();
         int col = tile.getCol();
@@ -196,40 +195,94 @@ public class Main extends Application {
         return count >= 3;
     }
 
-    // Check and remove matches from the board
     private void checkMatchesAndClear() {
         boolean[][] toClear = new boolean[GRID_SIZE][GRID_SIZE];
+        Map<Tile, BoosterType> boostersToAdd = new HashMap<>();
 
-        // Horizontal match check
+        // Horizontal matches
         for (int row = 0; row < GRID_SIZE; row++) {
-            for (int col = 0; col < GRID_SIZE - 2; col++) {
-                Color a = tiles[row][col].getTileColor();
-                Color b = tiles[row][col + 1].getTileColor();
-                Color c = tiles[row][col + 2].getTileColor();
-                if (a.equals(b) && b.equals(c)) {
-                    toClear[row][col] = toClear[row][col + 1] = toClear[row][col + 2] = true;
+            int count = 1;
+            for (int col = 1; col <= GRID_SIZE; col++) {
+                boolean match = col < GRID_SIZE &&
+                        tiles[row][col] != null &&
+                        tiles[row][col - 1] != null &&
+                        tiles[row][col].getTileColor() != null &&
+                        tiles[row][col].getTileColor().equals(tiles[row][col - 1].getTileColor());
+
+                if (match) {
+                    count++;
+                } else {
+                    if (count >= 3) {
+                        for (int i = col - count; i < col; i++) {
+                            toClear[row][i] = true;
+                        }
+
+                        if (count == 4) {
+                            Tile bonusTile = tiles[row][col - 2];
+                            boostersToAdd.put(bonusTile, BoosterType.ROW);
+                            System.out.println("Created booster: ROW at (" + row + "," + (col - 2) + ")");
+                        } else if (count >= 5) {
+                            Tile bonusTile = tiles[row][col - 3];
+                            boostersToAdd.put(bonusTile, BoosterType.COLOR_BOMB);
+                            System.out.println("Created booster: COLOR_BOMB at (" + row + "," + (col - 3) + ")");
+                        }
+                    }
+                    count = 1;
                 }
             }
         }
 
-        // Vertical match check
+        // Vertical matches
         for (int col = 0; col < GRID_SIZE; col++) {
-            for (int row = 0; row < GRID_SIZE - 2; row++) {
-                Color a = tiles[row][col].getTileColor();
-                Color b = tiles[row + 1][col].getTileColor();
-                Color c = tiles[row + 2][col].getTileColor();
-                if (a.equals(b) && b.equals(c)) {
-                    toClear[row][col] = toClear[row + 1][col] = toClear[row + 2][col] = true;
+            int count = 1;
+            for (int row = 1; row <= GRID_SIZE; row++) {
+                boolean match = row < GRID_SIZE &&
+                        tiles[row][col] != null &&
+                        tiles[row - 1][col] != null &&
+                        tiles[row][col].getTileColor() != null &&
+                        tiles[row][col].getTileColor().equals(tiles[row - 1][col].getTileColor());
+
+                if (match) {
+                    count++;
+                } else {
+                    if (count >= 3) {
+                        for (int i = row - count; i < row; i++) {
+                            toClear[i][col] = true;
+                        }
+
+                        if (count == 4) {
+                            Tile bonusTile = tiles[row - 2][col];
+                            boostersToAdd.put(bonusTile, BoosterType.COLUMN);
+                            System.out.println("Created booster: COLUMN at (" + (row - 2) + "," + col + ")");
+                        } else if (count >= 5) {
+                            Tile bonusTile = tiles[row - 3][col];
+                            boostersToAdd.put(bonusTile, BoosterType.COLOR_BOMB);
+                            System.out.println("Created booster: COLOR_BOMB at (" + (row - 3) + "," + col + ")");
+                        }
+                    }
+                    count = 1;
                 }
+            }
+        }
+
+        // Preserve boosters BEFORE clearing
+        for (Map.Entry<Tile, BoosterType> entry : boostersToAdd.entrySet()) {
+            Tile tile = entry.getKey();
+            if (tile.getTileColor() != null) {
+                tile.setBooster(entry.getValue());
+                // Prevent it from being cleared
+                int r = tile.getRow();
+                int c = tile.getCol();
+                toClear[r][c] = false;
             }
         }
 
         int cleared = 0;
-
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
                 if (toClear[row][col]) {
                     tiles[row][col].setTileColor(null);
+                    tiles[row][col].setBooster(BoosterType.NONE);
                     cleared++;
                 }
             }
@@ -238,21 +291,66 @@ public class Main extends Application {
         if (cleared > 0) {
             score += cleared * 10;
             updateScore();
-
             Platform.runLater(this::applyGravity);
         }
     }
+    private void activateBooster(Tile tile) {
+        int row = tile.getRow();
+        int col = tile.getCol();
 
-    // Drop tiles downward and fill empty spaces
+        BoosterType booster = tile.getBooster();
+        tile.setTileColor(null);
+        tile.setBooster(BoosterType.NONE);
+
+        switch (booster) {
+            case ROW:
+                for (int c = 0; c < GRID_SIZE; c++) {
+                    tiles[row][c].setTileColor(null);
+                    tiles[row][c].setBooster(BoosterType.NONE);
+                }
+                break;
+            case COLUMN:
+                for (int r = 0; r < GRID_SIZE; r++) {
+                    tiles[r][col].setTileColor(null);
+                    tiles[r][col].setBooster(BoosterType.NONE);
+                }
+                break;
+            case COLOR_BOMB:
+                Color targetColor = null;
+                if (selectedTile != null && selectedTile != tile) {
+                    targetColor = selectedTile.getTileColor();
+                }
+                if (targetColor != null) {
+                    for (int r = 0; r < GRID_SIZE; r++) {
+                        for (int c = 0; c < GRID_SIZE; c++) {
+                            if (tiles[r][c].getTileColor().equals(targetColor)) {
+                                tiles[r][c].setTileColor(null);
+                                tiles[r][c].setBooster(BoosterType.NONE);
+                            }
+                        }
+                    }
+                }
+                break;
+        }
+
+        score += 80;
+        updateScore();
+        Platform.runLater(this::applyGravity);
+    }
+
+
     private void applyGravity() {
         for (int col = 0; col < GRID_SIZE; col++) {
             int empty = GRID_SIZE - 1;
             for (int row = GRID_SIZE - 1; row >= 0; row--) {
                 if (tiles[row][col].getTileColor() != null) {
                     Color color = tiles[row][col].getTileColor();
+                    BoosterType booster = tiles[row][col].getBooster();
                     if (empty != row) {
                         tiles[empty][col].setTileColor(color);
+                        tiles[empty][col].setBooster(booster);
                         tiles[row][col].setTileColor(null);
+                        tiles[row][col].setBooster(BoosterType.NONE);
                         animateDrop(tiles[empty][col], row, empty);
                     }
                     empty--;
@@ -261,6 +359,7 @@ public class Main extends Application {
 
             for (int row = empty; row >= 0; row--) {
                 tiles[row][col].setTileColor(randomColor());
+                tiles[row][col].setBooster(BoosterType.NONE);
                 animateDrop(tiles[row][col], -1, row);
             }
         }
@@ -272,27 +371,12 @@ public class Main extends Application {
         });
     }
 
-    // Animate tile drop
     private void animateDrop(Tile tile, int oldRow, int newRow) {
         double deltaY = (newRow - oldRow) * (TILE_SIZE + 5);
         TranslateTransition tt = new TranslateTransition(Duration.millis(150), tile);
         tt.setFromY(-deltaY);
         tt.setToY(0);
         tt.play();
-    }
-
-    // Update the score label
-    private void updateScore() {
-        scoreLabel.setText("Score: " + score);
-    }
-
-    // Generate a random color
-    private Color randomColor() {
-        Color[] colors = {
-                Color.RED, Color.BLUE, Color.GREEN,
-                Color.YELLOW, Color.ORANGE, Color.PURPLE
-        };
-        return colors[random.nextInt(colors.length)];
     }
 
     public static void main(String[] args) {

@@ -7,7 +7,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
-// Fullscreen pause menu with New Game and Exit options
+// Fullscreen pause menu with New Game and Exit buttons
 public class MenuOverlay extends StackPane {
 
     public MenuOverlay(Runnable onNewGame, Runnable onExit) {
