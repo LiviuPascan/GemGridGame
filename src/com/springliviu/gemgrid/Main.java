@@ -13,11 +13,11 @@ import java.util.Random;
 
 public class Main extends Application {
 
-    private static final int TILE_SIZE = 50;              // Width and height of each tile
-    private static final int GRID_SIZE = 8;               // Grid is 8x8
-    private final Tile[][] tiles = new Tile[GRID_SIZE][GRID_SIZE]; // Tile matrix
-    private Tile selectedTile = null;                     // Currently selected tile
-    private final Random random = new Random();           // Random generator
+    private static final int TILE_SIZE = 50;
+    private static final int GRID_SIZE = 8;
+    private final Tile[][] tiles = new Tile[GRID_SIZE][GRID_SIZE];
+    private Tile selectedTile = null;
+    private final Random random = new Random();
 
     @Override
     public void start(Stage stage) {
@@ -26,27 +26,29 @@ public class Main extends Application {
         grid.setHgap(5);
         grid.setVgap(5);
 
-        // Initialize grid with tiles
+        // Create tile grid
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
                 Color color = randomColor();
                 Tile tile = new Tile(row, col, TILE_SIZE, color);
                 tiles[row][col] = tile;
-
-                // Attach click handler
                 tile.setOnMouseClicked(event -> handleClick(tile, event));
-
                 grid.add(tile, col, row);
             }
         }
 
+        // Clear any initial matches before game starts
+        while (hasMatchAnywhere()) {
+            checkMatchesAndClear();
+        }
+
         Scene scene = new Scene(grid);
-        stage.setTitle("GemGrid - Match 3");
+        stage.setTitle("GemGrid");
         stage.setScene(scene);
         stage.show();
     }
 
-    // Handles click selection and swap logic
+    // Handle click on a tile
     private void handleClick(Tile tile, MouseEvent event) {
         if (selectedTile == null) {
             selectedTile = tile;
@@ -55,46 +57,90 @@ public class Main extends Application {
             highlightTile(selectedTile, false);
             if (areAdjacent(selectedTile, tile)) {
                 swapTiles(selectedTile, tile);
-                checkMatchesAndClear();
+
+                // Only allow swap if it results in a match
+                if (checkForMatch(selectedTile) || checkForMatch(tile)) {
+                    System.out.println("✅ Match formed, swap accepted.");
+                    checkMatchesAndClear();
+                } else {
+                    System.out.println("❌ No match, swap reverted.");
+                    swapTiles(selectedTile, tile); // Undo swap
+                }
             }
             selectedTile = null;
         }
     }
 
-    // Highlights or unhighlights a tile
+    // Highlight selected tile
     private void highlightTile(Tile tile, boolean highlight) {
-        if (highlight) {
-            tile.setEffect(new DropShadow(10, Color.BLACK));
-        } else {
-            tile.setEffect(null);
-        }
+        tile.setEffect(highlight ? new DropShadow(10, Color.BLACK) : null);
     }
 
-    // Checks if two tiles are direct neighbors
+    // Swap the colors between two tiles
+    private void swapTiles(Tile a, Tile b) {
+        System.out.println("Swapping: " + a.getRow() + "," + a.getCol() + " <-> " + b.getRow() + "," + b.getCol());
+        Color temp = a.getTileColor();
+        a.setTileColor(b.getTileColor());
+        b.setTileColor(temp);
+    }
+
+    // Return true if tiles are directly adjacent (4-directional)
     private boolean areAdjacent(Tile a, Tile b) {
         int dr = Math.abs(a.getRow() - b.getRow());
         int dc = Math.abs(a.getCol() - b.getCol());
         return (dr + dc) == 1;
     }
 
-    // Swaps the color of two tiles
-    private void swapTiles(Tile a, Tile b) {
-        Color temp = a.getTileColor();
-        a.setTileColor(b.getTileColor());
-        b.setTileColor(temp);
+    // Generate random color for tile
+    private Color randomColor() {
+        Color[] colors = {
+                Color.RED, Color.BLUE, Color.GREEN,
+                Color.YELLOW, Color.ORANGE, Color.PURPLE
+        };
+        return colors[random.nextInt(colors.length)];
     }
 
-    // Checks for 3-in-a-row matches and clears them
+    // Check entire board for matches (used after gravity)
+    private boolean hasMatchAnywhere() {
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                if (checkForMatch(tiles[row][col])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Check if a tile is part of a 3+ match (horizontal or vertical)
+    private boolean checkForMatch(Tile tile) {
+        int row = tile.getRow();
+        int col = tile.getCol();
+        Color color = tile.getTileColor();
+
+        // Horizontal
+        int count = 1;
+        for (int i = col - 1; i >= 0 && tiles[row][i].getTileColor().equals(color); i--) count++;
+        for (int i = col + 1; i < GRID_SIZE && tiles[row][i].getTileColor().equals(color); i++) count++;
+        if (count >= 3) return true;
+
+        // Vertical
+        count = 1;
+        for (int i = row - 1; i >= 0 && tiles[i][col].getTileColor().equals(color); i--) count++;
+        for (int i = row + 1; i < GRID_SIZE && tiles[i][col].getTileColor().equals(color); i++) count++;
+        return count >= 3;
+    }
+
+    // Find and clear matches, then apply gravity
     private void checkMatchesAndClear() {
         boolean[][] toClear = new boolean[GRID_SIZE][GRID_SIZE];
 
-        // Check rows
+        // Horizontal scan
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE - 2; col++) {
                 Color c1 = tiles[row][col].getTileColor();
                 Color c2 = tiles[row][col + 1].getTileColor();
                 Color c3 = tiles[row][col + 2].getTileColor();
-
                 if (c1.equals(c2) && c2.equals(c3) && !c1.equals(Color.TRANSPARENT)) {
                     toClear[row][col] = true;
                     toClear[row][col + 1] = true;
@@ -103,13 +149,12 @@ public class Main extends Application {
             }
         }
 
-        // Check columns
+        // Vertical scan
         for (int col = 0; col < GRID_SIZE; col++) {
             for (int row = 0; row < GRID_SIZE - 2; row++) {
                 Color c1 = tiles[row][col].getTileColor();
                 Color c2 = tiles[row + 1][col].getTileColor();
                 Color c3 = tiles[row + 2][col].getTileColor();
-
                 if (c1.equals(c2) && c2.equals(c3) && !c1.equals(Color.TRANSPARENT)) {
                     toClear[row][col] = true;
                     toClear[row + 1][col] = true;
@@ -118,25 +163,22 @@ public class Main extends Application {
             }
         }
 
-        boolean anyCleared = false;
-
-        // Clear matched tiles
+        boolean cleared = false;
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
                 if (toClear[row][col]) {
                     tiles[row][col].setTileColor(Color.TRANSPARENT);
-                    anyCleared = true;
+                    cleared = true;
                 }
             }
         }
 
-        // Apply gravity and check again
-        if (anyCleared) {
+        if (cleared) {
             applyGravity();
         }
     }
 
-    // Shifts all non-empty tiles down and fills empty spots with new tiles
+    // Drop non-empty tiles down and fill blanks
     private void applyGravity() {
         for (int col = 0; col < GRID_SIZE; col++) {
             int emptyRow = GRID_SIZE - 1;
@@ -152,23 +194,15 @@ public class Main extends Application {
                 }
             }
 
-            // Fill remaining cells at the top with new colors
             for (int row = emptyRow; row >= 0; row--) {
                 tiles[row][col].setTileColor(randomColor());
             }
         }
 
-        // Repeat the process if new matches appear
-        checkMatchesAndClear();
-    }
-
-    // Returns a random color from a fixed set
-    private Color randomColor() {
-        Color[] colors = {
-                Color.RED, Color.BLUE, Color.GREEN,
-                Color.YELLOW, Color.ORANGE, Color.PURPLE
-        };
-        return colors[random.nextInt(colors.length)];
+        // Continue clearing if more matches appear
+        if (hasMatchAnywhere()) {
+            checkMatchesAndClear();
+        }
     }
 
     public static void main(String[] args) {

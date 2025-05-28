@@ -32,6 +32,7 @@ public class Tile extends Rectangle {
 
     public void setTileColor(Color color) {
         this.color = color;
-        setFill(color);
+        setFill(null);       // Force redraw workaround
+        setFill(color);      // Set again
     }
 }
