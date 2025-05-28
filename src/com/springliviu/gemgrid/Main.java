@@ -1,6 +1,7 @@
 package com.springliviu.gemgrid;
 
 import javafx.animation.FadeTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -198,9 +199,10 @@ public class Main extends Application {
             for (int row = GRID_SIZE - 1; row >= 0; row--) {
                 if (tiles[row][col].getTileColor() != null) {
                     Color color = tiles[row][col].getTileColor();
-                    tiles[empty][col].setTileColor(color);
                     if (empty != row) {
+                        tiles[empty][col].setTileColor(color);
                         tiles[row][col].setTileColor(null);
+                        animateDrop(tiles[empty][col], row, empty);
                     }
                     empty--;
                 }
@@ -208,6 +210,7 @@ public class Main extends Application {
 
             for (int row = empty; row >= 0; row--) {
                 tiles[row][col].setTileColor(randomColor());
+                animateDrop(tiles[row][col], -1, row);
             }
         }
 
@@ -216,6 +219,15 @@ public class Main extends Application {
                 checkMatchesAndClear();
             }
         });
+    }
+
+    // Animate tile "falling" from oldRow to newRow
+    private void animateDrop(Tile tile, int oldRow, int newRow) {
+        double deltaY = (newRow - oldRow) * (TILE_SIZE + 5);
+        TranslateTransition tt = new TranslateTransition(Duration.millis(150), tile);
+        tt.setFromY(-deltaY);
+        tt.setToY(0);
+        tt.play();
     }
 
     private void updateScore() {
