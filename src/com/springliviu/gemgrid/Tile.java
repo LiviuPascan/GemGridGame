@@ -3,18 +3,18 @@ package com.springliviu.gemgrid;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
-// A single tile on the game board
+// Represents a single tile in the game
 public class Tile extends Rectangle {
-    private final int row;         // Row index
-    private final int col;         // Column index
-    private Color color;           // Current color of the tile
+    private final int row;
+    private final int col;
+    private Color color;
 
     public Tile(int row, int col, int size, Color color) {
         super(size, size, color);
         this.row = row;
         this.col = col;
         this.color = color;
-        setArcWidth(10);   // Rounded corners
+        setArcWidth(10);
         setArcHeight(10);
     }
 
@@ -32,7 +32,6 @@ public class Tile extends Rectangle {
 
     public void setTileColor(Color color) {
         this.color = color;
-        setFill(null);       // Force redraw workaround
-        setFill(color);      // Set again
+        setFill(color);
     }
 }
