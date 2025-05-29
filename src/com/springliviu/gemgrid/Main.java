@@ -57,7 +57,11 @@ public class Main extends Application {
         header.setSpacing(5);
         header.setPadding(new Insets(10, 0, 0, 0));
 
-        menu = new MenuOverlay(this::startGame, Platform::exit);
+        // Обновлено: сначала скрываем меню, затем запускаем игру
+        menu = new MenuOverlay(() -> {
+            menu.setVisible(false);
+            Platform.runLater(this::startGame);
+        }, Platform::exit);
         menu.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         menu.setVisible(false);
 
@@ -79,6 +83,7 @@ public class Main extends Application {
 
         startGame();
     }
+
 
     private void initGrid() {
         for (int row = 0; row < GRID_SIZE; row++) {
