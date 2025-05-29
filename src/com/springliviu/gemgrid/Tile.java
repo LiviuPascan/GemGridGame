@@ -1,5 +1,6 @@
 package com.springliviu.gemgrid;
 
+import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
@@ -9,15 +10,19 @@ public class Tile extends Rectangle {
     private final int col;
     private Color color;
     private BoosterType booster = BoosterType.NONE;
+    private boolean selected = false;
 
     public Tile(int row, int col, int size, Color color) {
         super(size, size);
         this.row = row;
         this.col = col;
         this.color = color;
-        updateAppearance();
+
         setArcWidth(10);
         setArcHeight(10);
+        setStroke(Color.DARKGRAY); // Border for visibility
+        setStrokeWidth(2);
+        updateAppearance();
     }
 
     public int getRow() { return row; }
@@ -35,7 +40,11 @@ public class Tile extends Rectangle {
         updateAppearance();
     }
 
-    // Update visual based on booster type
+    public void setSelected(boolean selected) {
+        this.selected = selected;
+        updateAppearance();
+    }
+
     private void updateAppearance() {
         if (booster == BoosterType.ROW) {
             setFill(Color.BLACK);
@@ -52,7 +61,13 @@ public class Tile extends Rectangle {
         } else {
             setWidth(50);
             setHeight(50);
-            setFill(color);
+            setFill(color != null ? color : Color.TRANSPARENT);
+        }
+
+        if (selected) {
+            setEffect(new DropShadow(10, Color.LIGHTYELLOW));
+        } else {
+            setEffect(null);
         }
     }
 }
