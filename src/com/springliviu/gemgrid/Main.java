@@ -141,10 +141,12 @@ public class Main extends Application {
         if (menu.isVisible()) return;
 
         if (selectedTile == null) {
+            // First tile selected
             selectedTile = tile;
             tile.setSelected(true);
         } else {
             if (tile == selectedTile) {
+                // Deselect if clicked again
                 tile.setSelected(false);
                 selectedTile = null;
                 return;
@@ -157,6 +159,7 @@ public class Main extends Application {
                 BoosterType boosterA = first.getBooster();
                 BoosterType boosterB = second.getBooster();
 
+                // Deselect before executing action
                 selectedTile.setSelected(false);
                 selectedTile = null;
 
@@ -177,12 +180,14 @@ public class Main extends Application {
                     }
                 }
             } else {
+                // Switch selected tile
                 selectedTile.setSelected(false);
                 selectedTile = tile;
                 tile.setSelected(true);
             }
         }
     }
+
 
     private boolean areAdjacent(Tile a, Tile b) {
         int dr = Math.abs(a.getRow() - b.getRow());

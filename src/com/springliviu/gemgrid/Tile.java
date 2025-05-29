@@ -41,9 +41,16 @@ public class Tile extends Rectangle {
     }
 
     public void setSelected(boolean selected) {
-        this.selected = selected;
-        updateAppearance();
+        if (selected) {
+            DropShadow glow = new DropShadow();
+            glow.setColor(Color.GOLD);
+            glow.setRadius(15);
+            setEffect(glow);
+        } else {
+            setEffect(null);
+        }
     }
+
 
     private void updateAppearance() {
         if (booster == BoosterType.ROW) {
