@@ -1,6 +1,7 @@
 package com.springliviu.gemgrid;
 
 import com.springliviu.gemgrid.services.BoosterHandler;
+import com.springliviu.gemgrid.services.GridAnimator;
 import com.springliviu.gemgrid.services.GridManipulator;
 import com.springliviu.gemgrid.services.TileUtils;
 import javafx.application.Application;
@@ -57,7 +58,6 @@ public class Main extends Application {
         header.setSpacing(5);
         header.setPadding(new Insets(10, 0, 0, 0));
 
-        // Обновлено: сначала скрываем меню, затем запускаем игру
         menu = new MenuOverlay(() -> {
             menu.setVisible(false);
             Platform.runLater(this::startGame);
@@ -84,7 +84,6 @@ public class Main extends Application {
         startGame();
     }
 
-
     private void initGrid() {
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
@@ -108,11 +107,9 @@ public class Main extends Application {
             }
         }
 
-        // Удалить стартовые совпадения
         removeInitialMatches();
     }
 
-    // Удаляет начальные совпадения, чтобы не было автоматических бонусов
     private void removeInitialMatches() {
         while (TileUtils.findMatchedTiles(tiles).size() > 0) {
             for (int row = 0; row < GRID_SIZE; row++) {
@@ -123,7 +120,6 @@ public class Main extends Application {
             }
         }
     }
-
 
     private void updateScore() {
         scoreLabel.setText("Score: " + score);
@@ -141,12 +137,10 @@ public class Main extends Application {
         if (menu.isVisible()) return;
 
         if (selectedTile == null) {
-            // First tile selected
             selectedTile = tile;
             tile.setSelected(true);
         } else {
             if (tile == selectedTile) {
-                // Deselect if clicked again
                 tile.setSelected(false);
                 selectedTile = null;
                 return;
@@ -159,28 +153,31 @@ public class Main extends Application {
                 BoosterType boosterA = first.getBooster();
                 BoosterType boosterB = second.getBooster();
 
-                // Deselect before executing action
                 selectedTile.setSelected(false);
                 selectedTile = null;
 
                 if (boosterA == BoosterType.COLOR_BOMB || boosterB == BoosterType.COLOR_BOMB) {
                     BoosterHandler.triggerColorBombCombo(first, second, tiles, random);
                     endAction();
-                } else if (boosterA != BoosterType.NONE) {
-                    BoosterHandler.activateBooster(first, tiles, this::endAction);
-                } else if (boosterB != BoosterType.NONE) {
-                    BoosterHandler.activateBooster(second, tiles, this::endAction);
-                } else {
+                }
+                // Swap and activate booster AFTER it moved
+                else if (boosterA != BoosterType.NONE || boosterB != BoosterType.NONE) {
+                    swapTiles(first, second);
+
+                    Tile triggered = (boosterA != BoosterType.NONE) ? second : first;
+                    BoosterHandler.activateBooster(triggered, tiles, this::endAction);
+                }
+                // Normal tiles: check for match
+                else {
                     swapTiles(first, second);
                     if (TileUtils.isMatch(tiles, first.getRow(), first.getCol()) ||
                             TileUtils.isMatch(tiles, second.getRow(), second.getCol())) {
                         endAction();
                     } else {
-                        swapTiles(first, second);
+                        swapTiles(first, second); // swap back if no match
                     }
                 }
             } else {
-                // Switch selected tile
                 selectedTile.setSelected(false);
                 selectedTile = tile;
                 tile.setSelected(true);
@@ -211,28 +208,47 @@ public class Main extends Application {
             Set<Tile> matched = TileUtils.findMatchedTiles(tiles);
 
             if (!matched.isEmpty()) {
-                // Назначить бонусы
                 Map<Tile, BoosterType> boosters = TileUtils.classifyMatchesAndBoosters(tiles, matched);
 
+                // Count how many tiles we need to wait for
+                int totalToFade = 0;
                 for (Tile tile : matched) {
-                    // Пропускаем плитки, которым назначены бустеры
+                    if (!boosters.containsKey(tile)) {
+                        totalToFade++;
+                    }
+                }
+
+                int[] remaining = {totalToFade};
+
+                for (Tile tile : matched) {
                     if (boosters.containsKey(tile)) continue;
 
                     tile.setTileColor(null);
                     tile.setBooster(BoosterType.NONE);
+
+                    GridAnimator.fadeOutTile(tile, () -> {
+                        remaining[0]--;
+                        if (remaining[0] == 0) {
+                            Platform.runLater(this::endAction);
+                        }
+                    });
+
                     score += 10;
                 }
 
-                // Применяем бустеры после удаления обычных
+                // Apply boosters immediately
                 for (Map.Entry<Tile, BoosterType> entry : boosters.entrySet()) {
                     Tile tile = entry.getKey();
                     tile.setBooster(entry.getValue());
-                    tile.setTileColor(Color.BLACK); // для видимости
+                    tile.setTileColor(Color.BLACK);
                 }
 
                 updateScore();
 
-                Platform.runLater(this::endAction); // повторно, пока есть совпадения
+                // If there were no tiles to fade, we must call endAction manually
+                if (totalToFade == 0) {
+                    Platform.runLater(this::endAction);
+                }
             }
         });
     }

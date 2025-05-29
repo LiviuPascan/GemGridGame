@@ -60,6 +60,16 @@ public class GridManipulator {
         tt.setFromY(-deltaY);
         tt.setToY(0);
         tt.play();
+
+        // Optional: fade in effect for new tiles
+        if (oldRow == -1) {
+            tile.setOpacity(0);
+            tile.setVisible(true);
+            javafx.animation.FadeTransition fade = new javafx.animation.FadeTransition(Duration.millis(150), tile);
+            fade.setFromValue(0);
+            fade.setToValue(1);
+            fade.play();
+        }
     }
 
     private static Color randomColor(Random random) {
