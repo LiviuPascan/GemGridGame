@@ -2,30 +2,45 @@ package com.springliviu.gemgrid;
 
 import javafx.animation.Animation;
 import javafx.animation.ScaleTransition;
+import javafx.geometry.Pos;
+import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 // Represents a single tile in the game grid
-public class Tile extends Rectangle {
+public class Tile extends StackPane {
     private final int row;
     private final int col;
     private Color color;
     private BoosterType booster = BoosterType.NONE;
     private boolean selected = false;
+
+    private final Rectangle background;
+    private final Label symbolLabel;
     private ScaleTransition pulseEffect;
 
     public Tile(int row, int col, int size, Color color) {
-        super(size, size);
         this.row = row;
         this.col = col;
         this.color = color;
 
-        setArcWidth(10);
-        setArcHeight(10);
-        setStroke(Color.DARKGRAY);
-        setStrokeWidth(2);
+        setPrefSize(size, size);
+        setAlignment(Pos.CENTER);
+
+        background = new Rectangle(size, size);
+        background.setArcWidth(10);
+        background.setArcHeight(10);
+        background.setStroke(Color.DARKGRAY);
+        background.setStrokeWidth(2);
+
+        symbolLabel = new Label();
+        symbolLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        symbolLabel.setTextFill(Color.WHITE);
+
+        getChildren().addAll(background, symbolLabel);
         updateAppearance();
     }
 
@@ -50,45 +65,51 @@ public class Tile extends Rectangle {
     }
 
     private void updateAppearance() {
-        // Cancel any existing animation
+        // Cancel pulse animation if active
         if (pulseEffect != null) {
             pulseEffect.stop();
             pulseEffect = null;
         }
 
-        if (booster == BoosterType.ROW) {
-            setFill(Color.BLACK);
-            setHeight(15);
-            setWidth(50);
-            setScaleX(1.0);
-            setScaleY(1.0);
-        } else if (booster == BoosterType.COLUMN) {
-            setFill(Color.BLACK);
-            setWidth(15);
-            setHeight(50);
-            setScaleX(1.0);
-            setScaleY(1.0);
-        } else if (booster == BoosterType.COLOR_BOMB) {
-            setFill(Color.WHITE);
-            setWidth(50);
-            setHeight(50);
+        // Default style
+        background.setWidth(50);
+        background.setHeight(50);
+        background.setStroke(Color.DARKGRAY);
+        symbolLabel.setText("");
+        symbolLabel.setTextFill(Color.WHITE);
 
-            pulseEffect = new ScaleTransition(Duration.millis(600), this);
-            pulseEffect.setFromX(1.0);
-            pulseEffect.setToX(1.1);
-            pulseEffect.setFromY(1.0);
-            pulseEffect.setToY(1.1);
-            pulseEffect.setCycleCount(Animation.INDEFINITE);
-            pulseEffect.setAutoReverse(true);
-            pulseEffect.play();
-        } else {
-            setWidth(50);
-            setHeight(50);
-            setFill(color != null ? color : Color.TRANSPARENT);
-            setScaleX(1.0);
-            setScaleY(1.0);
+        // Booster styles
+        switch (booster) {
+            case ROW:
+                background.setFill(Color.BLACK);
+                symbolLabel.setText("⇔");
+                break;
+            case COLUMN:
+                background.setFill(Color.BLACK);
+                symbolLabel.setText("⇕");
+                break;
+            case COLOR_BOMB:
+                background.setFill(Color.WHITE);
+                background.setStroke(Color.GRAY);
+                symbolLabel.setText("✴");
+                symbolLabel.setTextFill(Color.BLACK);
+
+                pulseEffect = new ScaleTransition(Duration.millis(600), this);
+                pulseEffect.setFromX(1.0);
+                pulseEffect.setToX(1.1);
+                pulseEffect.setFromY(1.0);
+                pulseEffect.setToY(1.1);
+                pulseEffect.setCycleCount(Animation.INDEFINITE);
+                pulseEffect.setAutoReverse(true);
+                pulseEffect.play();
+                break;
+            case NONE:
+            default:
+                background.setFill(color != null ? color : Color.TRANSPARENT);
+                break;
         }
 
+        // Selection effect
         if (selected) {
             DropShadow glow = new DropShadow();
             glow.setColor(Color.GOLD);

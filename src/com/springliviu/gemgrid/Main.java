@@ -143,6 +143,13 @@ public class Main extends Application {
         return colors[random.nextInt(colors.length)];
     }
 
+    public static void triggerEndAction() {
+        if (instance != null) {
+            instance.endAction();
+        }
+    }
+
+
     private void handleClick(Tile tile, MouseEvent event) {
         if (menu.isVisible()) return;
 
@@ -166,28 +173,43 @@ public class Main extends Application {
                 selectedTile.setSelected(false);
                 selectedTile = null;
 
+                // Always swap before processing boosters
+                swapTiles(first, second);
+
+                // COLOR_BOMB + COLOR_BOMB or COLOR_BOMB + other booster or tile
                 if (boosterA == BoosterType.COLOR_BOMB || boosterB == BoosterType.COLOR_BOMB) {
                     BoosterHandler.triggerColorBombCombo(first, second, tiles, random);
-                    endAction();
+                    Platform.runLater(this::endAction);
                 }
-                // Swap and activate booster AFTER it moved
-                else if (boosterA != BoosterType.NONE || boosterB != BoosterType.NONE) {
-                    swapTiles(first, second);
 
+                // ROW + ROW or COLUMN + COLUMN  or ROW + COLUMN→ Cross explosion
+                else if ((boosterA == BoosterType.ROW && boosterB == BoosterType.ROW) ||
+                        (boosterA == BoosterType.COLUMN && boosterB == BoosterType.COLUMN) ||
+                        (boosterA == BoosterType.ROW && boosterB == BoosterType.COLUMN) ||
+                        (boosterA == BoosterType.COLUMN && boosterB == BoosterType.ROW)) {
+
+                    // Use the destination tile as center of explosion
+                    BoosterHandler.triggerLineBoosterCombo(second, tiles, this::endAction);
+                }
+
+
+                // One booster only
+                else if (boosterA != BoosterType.NONE || boosterB != BoosterType.NONE) {
                     Tile triggered = (boosterA != BoosterType.NONE) ? second : first;
                     BoosterHandler.activateBooster(triggered, tiles, this::endAction);
                 }
-                // Normal tiles: check for match
+
+                // Normal tiles: check for match, else swap back
                 else {
-                    swapTiles(first, second);
                     if (TileUtils.isMatch(tiles, first.getRow(), first.getCol()) ||
                             TileUtils.isMatch(tiles, second.getRow(), second.getCol())) {
                         endAction();
                     } else {
-                        swapTiles(first, second); // swap back if no match
+                        swapTiles(first, second); // revert swap if no match
                     }
                 }
             } else {
+                // Clicked non-adjacent tile — reselect
                 selectedTile.setSelected(false);
                 selectedTile = tile;
                 tile.setSelected(true);

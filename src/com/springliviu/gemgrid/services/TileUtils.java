@@ -78,86 +78,96 @@ public class TileUtils {
         return matched;
     }
 
-    // Classifies matched tiles and determines which ones should become boosters
+    // Classifies matched tiles and determines which ones should
     public static Map<Tile, BoosterType> classifyMatchesAndBoosters(Tile[][] grid, Set<Tile> matched) {
         Map<Tile, BoosterType> result = new HashMap<>();
         Set<Tile> visited = new HashSet<>();
 
-        // Detect streaks (for ROW/COLUMN/COLOR_BOMB)
-        for (int row = 0; row < grid.length; row++) {
-            int streak = 1;
-            for (int col = 1; col < grid[0].length; col++) {
-                if (matched.contains(grid[row][col]) &&
-                        matched.contains(grid[row][col - 1]) &&
-                        sameColor(grid[row][col], grid[row][col - 1].getTileColor())) {
-                    streak++;
-                } else {
-                    if (streak == 4) {
-                        int center = col - 2;
-                        result.put(grid[row][center], BoosterType.ROW);
-                    } else if (streak >= 5) {
-                        int center = col - streak / 2;
-                        result.put(grid[row][center], BoosterType.COLOR_BOMB);
-                    }
-                    streak = 1;
-                }
-            }
-            if (streak == 4) {
-                int center = grid[0].length - 2;
-                result.put(grid[row][center], BoosterType.ROW);
-            } else if (streak >= 5) {
-                int center = grid[0].length - streak / 2;
-                result.put(grid[row][center], BoosterType.COLOR_BOMB);
-            }
-        }
-
-        for (int col = 0; col < grid[0].length; col++) {
-            int streak = 1;
-            for (int row = 1; row < grid.length; row++) {
-                if (matched.contains(grid[row][col]) &&
-                        matched.contains(grid[row - 1][col]) &&
-                        sameColor(grid[row][col], grid[row - 1][col].getTileColor())) {
-                    streak++;
-                } else {
-                    if (streak == 4) {
-                        int center = row - 2;
-                        result.put(grid[center][col], BoosterType.COLUMN);
-                    } else if (streak >= 5) {
-                        int center = row - streak / 2;
-                        result.put(grid[center][col], BoosterType.COLOR_BOMB);
-                    }
-                    streak = 1;
-                }
-            }
-            if (streak == 4) {
-                int center = grid.length - 2;
-                result.put(grid[center][col], BoosterType.COLUMN);
-            } else if (streak >= 5) {
-                int center = grid.length - streak / 2;
-                result.put(grid[center][col], BoosterType.COLOR_BOMB);
-            }
-        }
-
-        // Detect large clusters (T/L/+ shapes)
+        // Step 1: Find clusters (connected components)
         for (Tile tile : matched) {
-            if (!visited.contains(tile)) {
-                Set<Tile> cluster = new HashSet<>();
-                dfsCluster(grid, tile, matched, cluster, tile.getTileColor());
+            if (visited.contains(tile)) continue;
 
-                if (cluster.size() >= 5) {
-                    Tile center = cluster.iterator().next();
-                    if (!result.containsKey(center)) {
-                        result.put(center, BoosterType.COLOR_BOMB);
-                        System.out.println("COLOR_BOMB from cluster at " + center.getRow() + "," + center.getCol());
+            Set<Tile> cluster = new HashSet<>();
+            dfsCluster(grid, tile, matched, cluster, tile.getTileColor());
+            visited.addAll(cluster);
+
+            if (cluster.size() < 3) continue;
+
+            // Step 2: Try to find 5+ streak in a line (horizontal or vertical)
+            Tile boosterTarget = null;
+            BoosterType boosterType = BoosterType.NONE;
+
+            // Horizontal streak check
+            for (int row = 0; row < grid.length; row++) {
+                int streak = 0;
+                for (int col = 0; col < grid[0].length; col++) {
+                    Tile t = grid[row][col];
+                    if (cluster.contains(t)) {
+                        streak++;
+                    } else {
+                        if (streak == 4) {
+                            boosterTarget = grid[row][col - 2];
+                            boosterType = BoosterType.ROW;
+                        } else if (streak >= 5) {
+                            boosterTarget = grid[row][col - streak / 2];
+                            boosterType = BoosterType.COLOR_BOMB;
+                        }
+                        streak = 0;
                     }
                 }
+                // Handle streak ending at row's end
+                if (streak == 4) {
+                    boosterTarget = grid[row][grid[0].length - 2];
+                    boosterType = BoosterType.ROW;
+                } else if (streak >= 5) {
+                    boosterTarget = grid[row][grid[0].length - streak / 2];
+                    boosterType = BoosterType.COLOR_BOMB;
+                }
+            }
 
-                visited.addAll(cluster);
+            // Vertical streak check
+            for (int col = 0; col < grid[0].length; col++) {
+                int streak = 0;
+                for (int row = 0; row < grid.length; row++) {
+                    Tile t = grid[row][col];
+                    if (cluster.contains(t)) {
+                        streak++;
+                    } else {
+                        if (streak == 4 && boosterType == BoosterType.NONE) {
+                            boosterTarget = grid[row - 2][col];
+                            boosterType = BoosterType.COLUMN;
+                        } else if (streak >= 5 && boosterType != BoosterType.COLOR_BOMB) {
+                            boosterTarget = grid[row - streak / 2][col];
+                            boosterType = BoosterType.COLOR_BOMB;
+                        }
+                        streak = 0;
+                    }
+                }
+                // Handle streak ending at column's end
+                if (streak == 4 && boosterType == BoosterType.NONE) {
+                    boosterTarget = grid[grid.length - 2][col];
+                    boosterType = BoosterType.COLUMN;
+                } else if (streak >= 5 && boosterType != BoosterType.COLOR_BOMB) {
+                    boosterTarget = grid[grid.length - streak / 2][col];
+                    boosterType = BoosterType.COLOR_BOMB;
+                }
+            }
+
+            // If no clear horizontal/vertical 5-line found but cluster ≥ 5 → assume T/L-shape
+            if (boosterType == BoosterType.NONE && cluster.size() >= 5) {
+                boosterType = BoosterType.COLOR_BOMB;
+                boosterTarget = cluster.iterator().next(); // pick any tile from cluster
+            }
+
+            if (boosterType != BoosterType.NONE && boosterTarget != null && !result.containsKey(boosterTarget)) {
+                result.put(boosterTarget, boosterType);
+                System.out.println("Assigned " + boosterType + " at " + boosterTarget.getRow() + "," + boosterTarget.getCol());
             }
         }
 
         return result;
     }
+
 
     // Performs DFS to group adjacent matched tiles of the same color
     private static void dfsCluster(Tile[][] grid, Tile tile, Set<Tile> matched, Set<Tile> cluster, Color color) {
