@@ -31,7 +31,7 @@ public class Main extends Application {
     private Label scoreLabel;
     private int score = 0;
     private final Random random = new Random();
-
+    private static Main instance;
     @Override
     public void start(Stage stage) {
         grid = new GridPane();
@@ -74,6 +74,8 @@ public class Main extends Application {
         stage.setScene(scene);
         stage.setTitle("GemGrid");
         stage.show();
+        instance = this;
+
 
         scene.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
@@ -83,6 +85,14 @@ public class Main extends Application {
 
         startGame();
     }
+
+    public static void addToScore(int points) {
+        if (instance != null) {
+            instance.score += points;
+            instance.updateScore();
+        }
+    }
+
 
     private void initGrid() {
         for (int row = 0; row < GRID_SIZE; row++) {
@@ -210,7 +220,7 @@ public class Main extends Application {
             if (!matched.isEmpty()) {
                 Map<Tile, BoosterType> boosters = TileUtils.classifyMatchesAndBoosters(tiles, matched);
 
-                // Count how many tiles we need to wait for
+                // Count how many tiles will fade out (non-booster matches)
                 int totalToFade = 0;
                 for (Tile tile : matched) {
                     if (!boosters.containsKey(tile)) {
@@ -220,38 +230,42 @@ public class Main extends Application {
 
                 int[] remaining = {totalToFade};
 
+                // Start fading out matched tiles
                 for (Tile tile : matched) {
-                    if (boosters.containsKey(tile)) continue;
-
-                    tile.setTileColor(null);
-                    tile.setBooster(BoosterType.NONE);
+                    if (boosters.containsKey(tile)) {
+                        // Booster tiles stay; will be updated visually after fades
+                        continue;
+                    }
 
                     GridAnimator.fadeOutTile(tile, () -> {
                         remaining[0]--;
                         if (remaining[0] == 0) {
-                            Platform.runLater(this::endAction);
+                            Platform.runLater(this::endAction); // Trigger again after all fades complete
                         }
                     });
 
                     score += 10;
                 }
 
-                // Apply boosters immediately
+                // Apply boosters after fade begins to avoid removing them prematurely
                 for (Map.Entry<Tile, BoosterType> entry : boosters.entrySet()) {
                     Tile tile = entry.getKey();
                     tile.setBooster(entry.getValue());
+
+                    // Use black as neutral marker color; visual cue
                     tile.setTileColor(Color.BLACK);
                 }
 
                 updateScore();
 
-                // If there were no tiles to fade, we must call endAction manually
+                // If nothing needed to fade, continue loop immediately
                 if (totalToFade == 0) {
                     Platform.runLater(this::endAction);
                 }
             }
         });
     }
+
 
 
     public static void main(String[] args) {

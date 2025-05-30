@@ -1,11 +1,14 @@
 package com.springliviu.gemgrid.services;
 
 import com.springliviu.gemgrid.BoosterType;
+import com.springliviu.gemgrid.Main;
 import com.springliviu.gemgrid.Tile;
 import javafx.application.Platform;
 import javafx.scene.paint.Color;
 
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 // Handles logic related to activating boosters on the grid
 public class BoosterHandler {
@@ -19,17 +22,17 @@ public class BoosterHandler {
         tile.setTileColor(null);
         tile.setBooster(BoosterType.NONE);
 
+        Set<Tile> affected = new HashSet<>();
+
         switch (booster) {
             case ROW:
                 for (int c = 0; c < grid[0].length; c++) {
-                    grid[row][c].setTileColor(null);
-                    grid[row][c].setBooster(BoosterType.NONE);
+                    affected.add(grid[row][c]);
                 }
                 break;
             case COLUMN:
                 for (int r = 0; r < grid.length; r++) {
-                    grid[r][col].setTileColor(null);
-                    grid[r][col].setBooster(BoosterType.NONE);
+                    affected.add(grid[r][col]);
                 }
                 break;
             case COLOR_BOMB:
@@ -49,8 +52,7 @@ public class BoosterHandler {
                     for (int r = 0; r < grid.length; r++) {
                         for (int c = 0; c < grid[0].length; c++) {
                             if (targetColor.equals(grid[r][c].getTileColor())) {
-                                grid[r][c].setTileColor(null);
-                                grid[r][c].setBooster(BoosterType.NONE);
+                                affected.add(grid[r][c]);
                             }
                         }
                     }
@@ -58,7 +60,18 @@ public class BoosterHandler {
                 break;
         }
 
-        Platform.runLater(postAction);
+        // Animate and clear all affected tiles
+        int[] remaining = {affected.size()};
+        for (Tile t : affected) {
+            GridAnimator.fadeOutTile(t, () -> {
+                remaining[0]--;
+                if (remaining[0] == 0) {
+                    Platform.runLater(postAction);
+                }
+            });
+        }
+
+        Main.addToScore(affected.size() * 10);
     }
 
     // Triggers a combo when COLOR_BOMB is swapped with another tile
@@ -68,12 +81,33 @@ public class BoosterHandler {
 
         // Case 1: Double color bomb - clear entire grid
         if (a.getBooster() == BoosterType.COLOR_BOMB && b.getBooster() == BoosterType.COLOR_BOMB) {
+            Set<Tile> allTiles = new HashSet<>();
             for (int r = 0; r < grid.length; r++) {
                 for (int c = 0; c < grid[0].length; c++) {
-                    grid[r][c].setTileColor(null);
-                    grid[r][c].setBooster(BoosterType.NONE);
+                    if (grid[r][c].getTileColor() != null) {
+                        allTiles.add(grid[r][c]);
+                    }
                 }
             }
+
+            int[] remaining = {allTiles.size()};
+            for (Tile tile : allTiles) {
+                GridAnimator.fadeOutTile(tile, () -> {
+                    remaining[0]--;
+                    if (remaining[0] == 0) {
+                        Platform.runLater(() ->
+                                GridManipulator.applyGravity(grid, random, () -> {})
+                        );
+                    }
+                });
+            }
+
+            bomb.setTileColor(null);
+            bomb.setBooster(BoosterType.NONE);
+            target.setTileColor(null);
+            target.setBooster(BoosterType.NONE);
+
+            Main.addToScore(allTiles.size() * 10);
             return;
         }
 
@@ -91,18 +125,35 @@ public class BoosterHandler {
         // Case 3: Color bomb + normal tile - clear all tiles of that color
         else if (target.getTileColor() != null) {
             Color targetColor = target.getTileColor();
+            Set<Tile> toRemove = new HashSet<>();
+
             for (int r = 0; r < grid.length; r++) {
                 for (int c = 0; c < grid[0].length; c++) {
                     if (targetColor.equals(grid[r][c].getTileColor())) {
-                        grid[r][c].setTileColor(null);
-                        grid[r][c].setBooster(BoosterType.NONE);
+                        toRemove.add(grid[r][c]);
                     }
                 }
             }
+
+            int[] remaining = {toRemove.size()};
+            for (Tile tile : toRemove) {
+                GridAnimator.fadeOutTile(tile, () -> {
+                    remaining[0]--;
+                    if (remaining[0] == 0) {
+                        Platform.runLater(() ->
+                                GridManipulator.applyGravity(grid, random, () -> {})
+                        );
+                    }
+                });
+            }
+
+            Main.addToScore(toRemove.size() * 10);
         }
 
-        // Remove the color bomb tile itself
+        // Remove the color bomb tiles themselves
         bomb.setTileColor(null);
         bomb.setBooster(BoosterType.NONE);
+        target.setTileColor(null);
+        target.setBooster(BoosterType.NONE);
     }
 }
